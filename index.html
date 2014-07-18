@@ -1,0 +1,167 @@
+<!-- (C) 2014 Peter Cook @prcweb prcweb.co.uk -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+    <title>Selections 2 (data join and evaluated functions)</title>
+</head>
+
+<style>
+body {
+    background: #999;
+    margin: 0;
+}
+
+
+.stage {
+    background: #fff;
+}
+
+.stage__brush {
+    fill: #ddd;
+    opacity: 0;
+}
+
+.stage__brush--highlight {
+    opacity: 1;
+}
+
+.layer {
+    background: white;
+    border: 1px solid black;
+    fill: indianRed;
+}
+
+.layer:hover {
+    border: 1px solid gainsboro;
+}
+
+</style>
+
+<body>
+
+    <svg id="stage" class="stage" width="976" height="100%"></svg>
+
+    <script src="js/d3.v3.js"></script>
+    <script>
+
+var data = [];
+var numCircles = 20,
+    width = window.innerWidth, 
+    height = window.innerHeight, 
+    maxRadius = 40, 
+    circles;
+
+function setUpStage() {
+
+    var brush = d3.svg.brush()
+        .x(d3.scale.identity().domain([0, width]))
+        .y(d3.scale.identity().domain([0, height]))
+        .on('brushstart', brushStart)
+        .on('brushend', brushEnd)
+
+    var brush = d3.select('svg#stage')
+        .append('g')
+        .classed('stage__brush', true)
+        .call(brush);
+
+    function brushStart () {
+        brush.classed('stage__brush--highlight', true);
+    }
+
+    function brushEnd () {
+      var extent = d3.event.target.extent();
+      addLayer({
+        'x': extent[0][0],
+        'y': extent[0][1],
+        'width': (extent[1][0] - extent[0][0]),
+        'height':  (extent[1][1] - extent[0][1])
+      });
+      brush.classed('stage__brush--highlight', false);
+    }
+}
+
+function drawSquare(layer, opts) {
+    layer
+        .append('g')
+        .append("rect")
+        .attr("x", opts.x)
+        .attr("y", opts.y)
+        .attr("width", opts.width)
+        .attr("height", opts.height);
+}
+
+setUpStage();
+
+// var opts = {x: 103, y: 44, width: 308, height: 245}
+// drawSquare(opts);
+
+function addLayer (opts) {
+    console.log(opts);
+
+    var uniqueId = Math.floor(Math.random()*100000000000);
+
+    var layer = d3.select('body')
+                .append('svg')
+                .attr('id', 'layer-' + uniqueId)
+                .classed('layer', true)
+                .attr('width', opts.width)
+                .attr('height', opts.height);
+
+    layer[0][0].style.position = 'absolute';
+    layer[0][0].style.left = opts.x+'px';
+    layer[0][0].style.top  = opts.y+'px';
+
+    var projection = d3.geo.mercator()
+        .center([0, 0])
+        .scale((opts.width/6.28)+1)
+        .translate([opts.width/2,opts.height/2]);
+        //.translate([opts.width,opts.height])
+
+    var geoGenerator = d3.geo.path()
+        .projection(projection);
+
+    var clipId = 'clip' + uniqueId;
+
+    var clip = layer.append("defs").append("svg:clipPath")
+        .attr("id", clipId)
+        .append("rect")
+        .attr("id", "clip-rect")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", opts.width)
+        .attr("height", opts.height);
+
+    d3.json('data/countries.geo.json', function(err, geojson) {
+        
+        layer
+            .append('g')
+            .attr('transform', 'translate(0,0)')
+            //.attr('transform', 'translate(' + opts.x + ',' + opts.y + ')')
+            .classed('map', true)
+            .attr("clip-path", "url(#" + clipId + ")")
+            .selectAll('path')
+            .data(geojson.features)
+            .enter()
+            .append('path')
+            .attr('d', geoGenerator)
+
+        var zoomBehavior = d3.behavior.zoom().scaleExtent([1, Infinity]);
+        zoomBehavior.on('zoom', function () {
+            var e = d3.event;
+            layer.select('g.map').attr('transform', 'translate(' + e.translate + ')scale(' + e.scale + ')');
+        });
+        layer.call(zoomBehavior);
+
+    });
+
+}
+
+
+
+
+
+//addLayer(opts);
+
+    </script>
+</body>
+</html>
